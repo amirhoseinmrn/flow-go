@@ -189,10 +189,7 @@ func VerifySignatureFromRuntime(
 	valid, err := publicKey.Verify(signature, message, hasher)
 	if err != nil {
 		// All inputs are guaranteed to be valid at this stage.
-		// The check for crypto.InvalidInputs is only a sanity check
-		if crypto.IsInvalidInputsError(err) {
-			return false, err
-		}
+		// any error returned is unexpected
 		panic(fmt.Errorf("verify runtime signature failed with unexpected error %w", err))
 	}
 
@@ -240,11 +237,7 @@ func VerifySignatureFromTransaction(
 	valid, err := pk.Verify(signature, message, hasher)
 	if err != nil {
 		// All inputs are guaranteed to be valid at this stage.
-		// The check for crypto.InvalidInputs is only a sanity check
-		if crypto.IsInvalidInputsError(err) {
-			return false, err
-		}
-		// unexpected error in normal operations
+		// No error is expected
 		panic(fmt.Errorf("verify transaction signature failed with unexpected error %w", err))
 	}
 

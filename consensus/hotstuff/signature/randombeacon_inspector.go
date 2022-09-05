@@ -119,7 +119,7 @@ func (r *randomBeaconInspector) EnoughShares() bool {
 func (r *randomBeaconInspector) Reconstruct() (crypto.Signature, error) {
 	sig, err := r.inspector.ThresholdSignature()
 	if err != nil {
-		if crypto.IsInvalidInputsError(err) {
+		if crypto.IsInvalidInputsError(err) || crypto.IsInvalidSignatureError(err) {
 			return nil, model.NewInvalidSignatureIncludedError(err)
 		}
 		if crypto.IsNotEnoughSharesError(err) {
