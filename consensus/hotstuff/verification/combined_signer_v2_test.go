@@ -185,17 +185,21 @@ func TestCombinedSignWithNoDKGKey(t *testing.T) {
 }
 
 // Test_VerifyQC_EmptySigners checks that Verifier returns an `model.InsufficientSignaturesError`
-// if `signers` input is empty or nil. This check should happen _before_ the Verifier calls into
-// any sub-components, because some (e.g. `crypto.AggregateBLSPublicKeys`) don't provide sufficient
-// sentinel errors to distinguish between internal problems and external byzantine inputs.
+// if `signers` input is empty or nil.
 func Test_VerifyQC_EmptySigners(t *testing.T) {
+	pk := modulemock.NewPublicKey(t)
+	pk.On("Verify", mock.Anything, mock.Anything, mock.Anything).Return(true, nil)
+	dkg := &mocks.DKG{}
+	dkg.On("GroupKey").Return(pk, nil)
 	committee := &mocks.Committee{}
+	committee.On("DKG", mock.Anything).Return(dkg, nil)
+
 	packer := signature.NewConsensusSigDataPacker(committee)
 	verifier := NewCombinedVerifier(committee, packer)
 
 	header := unittest.BlockHeaderFixture()
 	block := model.BlockFromFlow(header, header.View-1)
-	sigData := unittest.QCSigDataFixture()
+	sigData := unittest.EmptyQCSigDataFixture()
 
 	err := verifier.VerifyQC([]*flow.Identity{}, sigData, block)
 	require.True(t, model.IsInsufficientSignaturesError(err))

@@ -1,3 +1,6 @@
+//go:build relic
+// +build relic
+
 package signature
 
 import (

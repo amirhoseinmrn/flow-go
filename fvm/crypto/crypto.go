@@ -277,8 +277,10 @@ func AggregateSignatures(sigs [][]byte) (crypto.Signature, error) {
 
 	aggregatedSignature, err := crypto.AggregateBLSSignatures(s)
 	if err != nil {
-		// check for a user error
-		if crypto.IsInvalidInputsError(err) {
+		// check for user errors:
+		//  - zero signatures
+		//  - input signaure that does not serialize to a BLS signature
+		if crypto.IsAggregationEmptyListError(err) || crypto.IsInvalidSignatureError(err) {
 			return nil, err
 		}
 		panic(fmt.Errorf("aggregate BLS signatures failed with unexpected error %w", err))
@@ -303,9 +305,11 @@ func AggregatePublicKeys(keys []*runtime.PublicKey) (*runtime.PublicKey, error) 
 	pk, err := crypto.AggregateBLSPublicKeys(pks)
 	if err != nil {
 		// check for a user error
-		if crypto.IsInvalidInputsError(err) {
+		if crypto.IsAggregationEmptyListError(err) {
 			return nil, err
 		}
+		// Other possible error is `notBLSKeyError` but is not supposed to happen
+		// at this stage
 		panic(fmt.Errorf("aggregate BLS public keys failed with unexpected error %w", err))
 	}
 

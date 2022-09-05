@@ -10,7 +10,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.8.0
 	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.5.1
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.15.0
-	github.com/btcsuite/btcd v0.22.1 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.2.1
 	github.com/dapperlabs/testingdock v0.4.4
 	github.com/davecgh/go-spew v1.1.1
@@ -85,7 +84,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.8.0
 	go.uber.org/atomic v1.9.0
 	go.uber.org/multierr v1.8.0
-	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
+	golang.org/x/crypto v0.0.0-20220622213112-05595931fe9d
 	golang.org/x/exp v0.0.0-20220426173459-3bcf042a4bf5
 	golang.org/x/sync v0.0.0-20220513210516-0976fa681c29
 	golang.org/x/sys v0.0.0-20220722155257-8c9f86f7a55f
@@ -288,3 +287,5 @@ require (
 )
 
 replace mellium.im/sasl => github.com/mellium/sasl v0.2.1
+
+replace github.com/onflow/flow-go/crypto => ./crypto

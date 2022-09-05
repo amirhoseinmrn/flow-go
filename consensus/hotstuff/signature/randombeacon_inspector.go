@@ -33,7 +33,7 @@ func NewRandomBeaconInspector(
 		message,
 		signature.RandomBeaconTag)
 	if err != nil {
-		if crypto.IsInvalidInputsError(err) {
+		if crypto.IsInvalidInputsError(err) || crypto.IsNotBLSKeyError(err) {
 			return nil, model.NewConfigurationErrorf("invalid parametrization for BLS Threshold Signature Inspector: %w", err)
 		}
 		return nil, fmt.Errorf("unexpected exception while instantiating BLS Threshold Signature Inspector: %w", err)

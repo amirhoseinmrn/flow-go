@@ -122,9 +122,7 @@ func (c *CombinedVerifierV3) VerifyVote(signer *flow.Identity, sigData []byte, b
 // This implementation already support the cases, where the DKG committee is a
 // _strict subset_ of the full consensus committee.
 func (c *CombinedVerifierV3) VerifyQC(signers flow.IdentityList, sigData []byte, block *model.Block) error {
-	if len(signers) == 0 {
-		return model.NewInsufficientSignaturesErrorf("empty list of signers")
-	}
+
 	signerIdentities := signers.Lookup()
 	dkg, err := c.committee.DKG(block.BlockID)
 	if err != nil {
@@ -153,8 +151,14 @@ func (c *CombinedVerifierV3) VerifyQC(signers flow.IdentityList, sigData []byte,
 	// Caution: this function will error if pubKeys is empty
 	verifyAggregatedSignature := func(pubKeys []crypto.PublicKey, aggregatedSig crypto.Signature, hasher hash.Hasher) error {
 		// TODO: as further optimization, replace the following call with model/signature.PublicKeyAggregator
-		aggregatedKey, err := crypto.AggregateBLSPublicKeys(pubKeys) // caution: requires non-empty slice of keys!
+		aggregatedKey, err := crypto.AggregateBLSPublicKeys(pubKeys)
 		if err != nil {
+			// check if error is `crypto.isAggregationEmptyListError` which is possible in
+			// normal operations
+			if crypto.IsAggregationEmptyListError(err) {
+				return model.NewInsufficientSignaturesErrorf("empty list of signers")
+			}
+			// other error are unexpected
 			return fmt.Errorf("internal error computing aggregated key: %w", err)
 		}
 		valid, err := aggregatedKey.Verify(aggregatedSig, msg, hasher)

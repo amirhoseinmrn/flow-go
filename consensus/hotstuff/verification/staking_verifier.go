@@ -65,26 +65,25 @@ func (v *StakingVerifier) VerifyVote(signer *flow.Identity, sigData []byte, bloc
 //
 // In the single verification case, `sigData` represents a single signature (`crypto.Signature`).
 func (v *StakingVerifier) VerifyQC(signers flow.IdentityList, sigData []byte, block *model.Block) error {
-	if len(signers) == 0 {
-		return model.NewInvalidFormatErrorf("empty list of signers")
-	}
 	msg := MakeVoteMessage(block.View, block.BlockID)
 
 	// verify the aggregated staking signature
 	// TODO: to be replaced by module/signature.PublicKeyAggregator in V2
 	aggregatedKey, err := crypto.AggregateBLSPublicKeys(signers.PublicStakingKeys()) // caution: requires non-empty slice of keys!
 	if err != nil {
-		// `AggregateBLSPublicKeys` returns a `crypto.invalidInputsError` in two distinct cases:
-		//  (i) In case no keys are provided, i.e.  `len(signers) == 0`.
+		// `AggregateBLSPublicKeys` returns :
+		//  (i) `crypto.aggregationEmptyListError` in case no keys are provided, i.e.  `len(signers) == 0`.
 		//      This scenario _is expected_ during normal operations, because a byzantine
 		//      proposer might construct an (invalid) QC with an empty list of signers.
-		// (ii) In case some provided public keys type is not BLS.
+		// (ii) `crypto.notBLSKeyError` in case some provided public keys type is not BLS.
 		//      This scenario is _not expected_ during normal operations, because all keys are
 		//      guaranteed by the protocol to be BLS keys.
-		//
-		// By checking `len(signers) == 0` upfront , we can rule out case (i) as a source of error.
-		// Hence, if we encounter an error here, we know it is case (ii). Thereby, we can clearly
-		// distinguish a faulty _external_ input from an _internal_ uncovered edge-case.
+
+		// case (i)
+		if crypto.IsAggregationEmptyListError(err) {
+			return model.NewInvalidFormatErrorf("empty list of signers")
+		}
+		// unexpected errors (including case (ii))
 		return fmt.Errorf("could not compute aggregated key: %w", err)
 	}
 	stakingValid, err := aggregatedKey.Verify(sigData, msg, v.stakingHasher)

@@ -118,9 +118,7 @@ func (c *CombinedVerifier) VerifyVote(signer *flow.Identity, sigData []byte, blo
 //   - model.ErrInvalidSignature if a signature is invalid
 //   - error if running into any unexpected exception (i.e. fatal error)
 func (c *CombinedVerifier) VerifyQC(signers flow.IdentityList, sigData []byte, block *model.Block) error {
-	if len(signers) == 0 {
-		return model.NewInsufficientSignaturesErrorf("empty list of signers")
-	}
+
 	dkg, err := c.committee.DKG(block.BlockID)
 	if err != nil {
 		return fmt.Errorf("could not get dkg data: %w", err)
@@ -155,9 +153,12 @@ func (c *CombinedVerifier) VerifyQC(signers flow.IdentityList, sigData []byte, b
 		//      This scenario is _not expected_ during normal operations, because all keys are
 		//      guaranteed by the protocol to be BLS keys.
 		//
-		// By checking `len(signers) == 0` upfront , we can rule out case (i) as a source of error.
-		// Hence, if we encounter an error here, we know it is case (ii). Thereby, we can clearly
-		// distinguish a faulty _external_ input from an _internal_ uncovered edge-case.
+
+		// case (i)
+		if crypto.IsAggregationEmptyListError(err) {
+			return model.NewInsufficientSignaturesErrorf("empty list of signers")
+		}
+		// other errors are unexpected (including case (ii))
 		return fmt.Errorf("could not compute aggregated key for block %x: %w", block.BlockID, err)
 	}
 

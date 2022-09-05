@@ -1209,6 +1209,18 @@ func QCSigDataFixture() []byte {
 	return encoded
 }
 
+func EmptyQCSigDataFixture() []byte {
+	packer := hotstuff.SigDataPacker{}
+	sigData := hotstuff.SignatureData{
+		SigType:                      []byte{},
+		AggregatedStakingSig:         SignatureFixture(),
+		AggregatedRandomBeaconSig:    SignatureFixture(),
+		ReconstructedRandomBeaconSig: SignatureFixture(),
+	}
+	encoded, _ := packer.Encode(&sigData)
+	return encoded
+}
+
 func SignatureFixture() crypto.Signature {
 	sig := make([]byte, crypto.SignatureLenBLSBLS12381)
 	_, _ = crand.Read(sig)
