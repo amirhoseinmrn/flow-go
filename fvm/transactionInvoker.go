@@ -25,7 +25,6 @@ func NewTransactionInvoker() TransactionInvoker {
 }
 
 func (i TransactionInvoker) Process(
-	vm *VirtualMachine,
 	ctx *Context,
 	proc *TransactionProcedure,
 	sth *state.StateHolder,
@@ -46,6 +45,9 @@ func (i TransactionInvoker) Process(
 	if err != nil {
 		return err
 	}
+
+	uninitializedRuntime := ctx.ReusableCadenceRuntimePool.Borrow(nil)
+	defer ctx.ReusableCadenceRuntimePool.Return(uninitializedRuntime)
 
 	var modifiedSets programsCache.ModifiedSets
 	defer func() {
@@ -80,7 +82,7 @@ func (i TransactionInvoker) Process(
 		}
 	}()
 
-	env := NewTransactionEnvironment(*ctx, vm, sth, programs, proc.Transaction, proc.TxIndex, span)
+	env := NewTransactionEnv(*ctx, uninitializedRuntime, sth, programs, proc.Transaction, proc.TxIndex, span)
 
 	rt := env.BorrowCadenceRuntime()
 	defer env.ReturnCadenceRuntime(rt)

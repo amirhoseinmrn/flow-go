@@ -8,6 +8,7 @@ import (
 	"github.com/onflow/flow-go/fvm/environment"
 	"github.com/onflow/flow-go/fvm/errors"
 	"github.com/onflow/flow-go/fvm/handler"
+	reusableRuntime "github.com/onflow/flow-go/fvm/runtime"
 	"github.com/onflow/flow-go/fvm/state"
 )
 
@@ -19,6 +20,7 @@ type ScriptEnv struct {
 	commonEnv
 }
 
+/*
 func NewScriptEnvironment(
 	reqContext context.Context,
 	fvmContext Context,
@@ -26,13 +28,23 @@ func NewScriptEnvironment(
 	sth *state.StateHolder,
 	programs handler.TransactionPrograms,
 ) *ScriptEnv {
+}
+*/
 
+func NewScriptEnv(
+	reqContext context.Context,
+	fvmContext Context,
+	rt *reusableRuntime.ReusableCadenceRuntime,
+	sth *state.StateHolder,
+	programs handler.TransactionPrograms,
+) *ScriptEnv {
 	tracer := environment.NewTracer(fvmContext.Tracer, nil, fvmContext.ExtensiveTracing)
 	meter := environment.NewCancellableMeter(reqContext, sth)
 
 	env := &ScriptEnv{
 		commonEnv: newCommonEnv(
 			fvmContext,
+			rt,
 			sth,
 			programs,
 			tracer,

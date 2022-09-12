@@ -28,6 +28,7 @@ type Environment interface {
 
 	Logger() *zerolog.Logger
 
+	Runtime() *reusableRuntime.ReusableCadenceRuntime
 	BorrowCadenceRuntime() *reusableRuntime.ReusableCadenceRuntime
 	ReturnCadenceRuntime(*reusableRuntime.ReusableCadenceRuntime)
 

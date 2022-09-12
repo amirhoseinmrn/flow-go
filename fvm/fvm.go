@@ -15,7 +15,11 @@ import (
 
 // An Procedure is an operation (or set of operations) that reads or writes ledger state.
 type Procedure interface {
-	Run(vm *VirtualMachine, ctx Context, sth *state.StateHolder, programs *programs.Programs) error
+	Run(
+		ctx Context,
+		sth *state.StateHolder,
+		programs *programs.Programs,
+	) error
 	ComputationLimit(ctx Context) uint64
 	MemoryLimit(ctx Context) uint64
 	ShouldDisableMemoryAndInteractionLimits(ctx Context) bool
@@ -76,7 +80,6 @@ func (vm *VirtualMachine) RunV2(
 		WithMemoryLimit(proc.MemoryLimit(ctx))
 
 	meterParams, err := getEnvironmentMeterParameters(
-		vm,
 		ctx,
 		v,
 		blockPrograms,
@@ -101,7 +104,7 @@ func (vm *VirtualMachine) RunV2(
 			WithMaxInteractionSizeAllowed(interactionLimit),
 	)
 
-	err = proc.Run(vm, ctx, stTxn, blockPrograms)
+	err = proc.Run(ctx, stTxn, blockPrograms)
 	if err != nil {
 		return err
 	}
@@ -119,7 +122,10 @@ func (vm *VirtualMachine) GetAccount(ctx Context, address flow.Address, v state.
 			WithMaxInteractionSizeAllowed(ctx.MaxStateInteractionSize),
 	)
 
-	account, err := getAccount(vm, ctx, stTxn, programs, address)
+	rt := ctx.ReusableCadenceRuntimePool.Borrow(nil)
+	defer ctx.ReusableCadenceRuntimePool.Return(rt)
+
+	account, err := getAccount(ctx, rt, stTxn, programs, address)
 	if err != nil {
 		if errors.IsALedgerFailure(err) {
 			return nil, fmt.Errorf("cannot get account, this error usually happens if the reference block for this query is not set to a recent block: %w", err)

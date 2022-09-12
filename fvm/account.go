@@ -7,13 +7,15 @@ import (
 
 	"github.com/onflow/flow-go/fvm/environment"
 	"github.com/onflow/flow-go/fvm/programs"
+	"github.com/onflow/flow-go/fvm/runtime"
 	"github.com/onflow/flow-go/fvm/state"
 	"github.com/onflow/flow-go/model/flow"
 )
 
 func getAccount(
-	vm *VirtualMachine,
 	ctx Context,
+	rt *runtime.ReusableCadenceRuntime,
+
 	sth *state.StateHolder,
 	programs *programs.Programs,
 	address flow.Address,
@@ -26,7 +28,7 @@ func getAccount(
 	}
 
 	if ctx.ServiceAccountEnabled {
-		env := NewScriptEnvironment(context.Background(), ctx, vm, sth, programs)
+		env := NewScriptEnv(context.Background(), ctx, rt, sth, programs)
 
 		balance, err := env.GetAccountBalance(common.Address(address))
 		if err != nil {

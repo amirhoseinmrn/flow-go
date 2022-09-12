@@ -12,6 +12,7 @@ import (
 	"github.com/onflow/flow-go/fvm/blueprints"
 	"github.com/onflow/flow-go/fvm/environment"
 	"github.com/onflow/flow-go/fvm/handler"
+	reusableRuntime "github.com/onflow/flow-go/fvm/runtime"
 	"github.com/onflow/flow-go/fvm/state"
 	"github.com/onflow/flow-go/fvm/utils"
 	"github.com/onflow/flow-go/model/flow"
@@ -29,6 +30,7 @@ type TransactionEnv struct {
 	txID    flow.Identifier
 }
 
+/*
 func NewTransactionEnvironment(
 	ctx Context,
 	vm *VirtualMachine,
@@ -38,7 +40,17 @@ func NewTransactionEnvironment(
 	txIndex uint32,
 	traceSpan otelTrace.Span,
 ) *TransactionEnv {
+*/
 
+func NewTransactionEnv(
+	ctx Context,
+	rt *reusableRuntime.ReusableCadenceRuntime,
+	sth *state.StateHolder,
+	programs handler.TransactionPrograms,
+	tx *flow.TransactionBody,
+	txIndex uint32,
+	traceSpan otelTrace.Span,
+) *TransactionEnv {
 	txID := tx.ID()
 	// TODO set the flags on context
 	tracer := environment.NewTracer(ctx.Tracer, traceSpan, ctx.ExtensiveTracing)
@@ -47,6 +59,7 @@ func NewTransactionEnvironment(
 	env := &TransactionEnv{
 		commonEnv: newCommonEnv(
 			ctx,
+			rt,
 			sth,
 			programs,
 			tracer,

@@ -48,6 +48,8 @@ type commonEnv struct {
 
 	handler.ContractUpdater
 
+	runtime *runtime.ReusableCadenceRuntime
+
 	// TODO(patrick): rm
 	ctx Context
 
@@ -62,6 +64,7 @@ type commonEnv struct {
 
 func newCommonEnv(
 	ctx Context,
+	rt *runtime.ReusableCadenceRuntime,
 	stateTransaction *state.StateHolder,
 	programs handler.TransactionPrograms,
 	tracer *environment.Tracer,
@@ -117,6 +120,7 @@ func newCommonEnv(
 			accounts,
 		),
 		SystemContracts: systemContracts,
+		runtime:         rt,
 		ctx:             ctx,
 		sth:             stateTransaction,
 		programs:        programsHandler,
@@ -130,6 +134,11 @@ func (env *commonEnv) Chain() flow.Chain {
 
 func (env *commonEnv) LimitAccountStorage() bool {
 	return env.ctx.LimitAccountStorage
+}
+
+func (env *commonEnv) Runtime() *runtime.ReusableCadenceRuntime {
+	env.runtime.SetFvmEnvironment(env.fullEnv)
+	return env.runtime
 }
 
 func (env *commonEnv) BorrowCadenceRuntime() *runtime.ReusableCadenceRuntime {

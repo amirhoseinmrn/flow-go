@@ -823,6 +823,22 @@ func (_m *Environment) RevokeEncodedAccountKey(address common.Address, index int
 	return r0, r1
 }
 
+// Runtime provides a mock function with given fields:
+func (_m *Environment) Runtime() *runtime.ReusableCadenceRuntime {
+	ret := _m.Called()
+
+	var r0 *runtime.ReusableCadenceRuntime
+	if rf, ok := ret.Get(0).(func() *runtime.ReusableCadenceRuntime); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*runtime.ReusableCadenceRuntime)
+		}
+	}
+
+	return r0
+}
+
 // SetAccountFrozen provides a mock function with given fields: address, frozen
 func (_m *Environment) SetAccountFrozen(address common.Address, frozen bool) error {
 	ret := _m.Called(address, frozen)

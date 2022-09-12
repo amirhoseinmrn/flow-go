@@ -17,7 +17,6 @@ import (
 )
 
 func getEnvironmentMeterParameters(
-	vm *VirtualMachine,
 	ctx Context,
 	view state.View,
 	programs *programs.Programs,
@@ -26,6 +25,9 @@ func getEnvironmentMeterParameters(
 	meter.MeterParameters,
 	error,
 ) {
+	rt := ctx.ReusableCadenceRuntimePool.Borrow(nil)
+	defer ctx.ReusableCadenceRuntimePool.Return(rt)
+
 	sth := state.NewStateTransaction(
 		view,
 		state.DefaultParameters().
@@ -35,7 +37,7 @@ func getEnvironmentMeterParameters(
 
 	sth.DisableAllLimitEnforcements()
 
-	env := NewScriptEnvironment(context.Background(), ctx, vm, sth, programs)
+	env := NewScriptEnv(context.Background(), ctx, rt, sth, programs)
 
 	return fillEnvironmentMeterParameters(ctx, env, params)
 }
