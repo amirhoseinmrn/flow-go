@@ -33,7 +33,7 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/improbable-eng/grpc-web v0.12.0
-	github.com/ipfs/go-bitswap v0.9.0
+	github.com/ipfs/go-bitswap v0.9.0 // indirect
 	github.com/ipfs/go-block-format v0.0.3
 	github.com/ipfs/go-blockservice v0.4.0
 	github.com/ipfs/go-cid v0.2.0
@@ -98,6 +98,8 @@ require (
 	gotest.tools v2.2.0+incompatible
 	pgregory.net/rapid v0.4.7
 )
+
+require github.com/onflow/go-bitswap v0.0.0-20221017184039-808c5791a8a8
 
 require (
 	cloud.google.com/go v0.100.2 // indirect
@@ -193,7 +195,6 @@ require (
 	github.com/libp2p/go-flow-metrics v0.1.0 // indirect
 	github.com/libp2p/go-libp2p-asn-util v0.2.0 // indirect
 	github.com/libp2p/go-libp2p-core v0.20.1 // indirect
-	github.com/libp2p/go-libp2p-loggables v0.1.0 // indirect
 	github.com/libp2p/go-libp2p-record v0.2.0 // indirect
 	github.com/libp2p/go-msgio v0.2.0 // indirect
 	github.com/libp2p/go-nat v0.1.0 // indirect
