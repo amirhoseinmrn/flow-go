@@ -69,6 +69,7 @@ type transactionExecutor struct {
 	errs *errors.ErrorsCollector
 
 	nestedTxnId state.NestedTransactionId
+	pausedState *state.State
 
 	cadenceRuntime  *reusableRuntime.ReusableCadenceRuntime
 	txnBodyExecutor runtime.Executor
@@ -113,24 +114,95 @@ func (executor *transactionExecutor) Cleanup() {
 	executor.span.End()
 }
 
-func (executor *transactionExecutor) Preprocess() error {
-	// TODO(patrick): split ExecuteTransactionBody preprocessing.
-	return nil
-}
-
-func (executor *transactionExecutor) Execute() error {
-	err := executor.execute()
+func (executor *transactionExecutor) handleError(
+	err error,
+	step string,
+) error {
 	txErr, failure := errors.SplitErrorTypes(err)
 	if failure != nil {
 		// log the full error path
 		executor.ctx.Logger.Err(err).
-			Msg("fatal error when executing a transaction")
+			Str("step", step).
+			Msg("fatal error when handling a transaction")
 		return failure
 	}
 
 	if txErr != nil {
 		executor.proc.Err = txErr
 	}
+
+	return nil
+}
+
+func (executor *transactionExecutor) Preprocess() error {
+	if !executor.TransactionBodyExecutionEnabled {
+		return nil
+	}
+
+	err := executor.PreprocessTransactionBody()
+	return executor.handleError(err, "preprocessing")
+}
+
+func (executor *transactionExecutor) Execute() error {
+	return executor.handleError(executor.execute(), "executing")
+}
+
+// PreprocessTransactionBody preprocess parts of a transaction body that are
+// infrequently modified and are expensive to compute.  For now this includes
+// reading meter parameter overrides and parsing programs.
+func (executor *transactionExecutor) PreprocessTransactionBody() error {
+	meterParams, err := getBodyMeterParameters(
+		executor.ctx,
+		executor.proc,
+		executor.txnState,
+		executor.derivedTxnData)
+	if err != nil {
+		return fmt.Errorf("error gettng meter parameters: %w", err)
+	}
+
+	txnId, err := executor.txnState.BeginNestedTransactionWithMeterParams(
+		meterParams)
+	if err != nil {
+		return err
+	}
+	executor.nestedTxnId = txnId
+
+	executor.txnBodyExecutor = executor.cadenceRuntime.NewTransactionExecutor(
+		runtime.Script{
+			Source:    executor.proc.Transaction.Script,
+			Arguments: executor.proc.Transaction.Arguments,
+		},
+		common.TransactionLocation(executor.proc.ID))
+
+	// This initializes various cadence variables and parses the programs used
+	// by the transaction body.
+	err = executor.txnBodyExecutor.Preprocess()
+	if err != nil {
+		executor.errs.Collect(
+			fmt.Errorf(
+				"transaction preprocess failed: %w",
+				err))
+
+		// We shouldn't early exit on non-failure since we need to deduct fees.
+		if executor.errs.CollectedFailure() {
+			return executor.errs.ErrorOrNil()
+		}
+
+		// NOTE: We need to restart the nested transaction in order to pause
+		// for fees deduction.
+		err = executor.txnState.RestartNestedTransaction(txnId)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Pause the transaction body's nested transaction in order to interleave
+	// auth and seq num checks.
+	pausedState, err := executor.txnState.Pause(txnId)
+	if err != nil {
+		return err
+	}
+	executor.pausedState = pausedState
 
 	return nil
 }
@@ -168,27 +240,16 @@ func (executor *transactionExecutor) execute() error {
 }
 
 func (executor *transactionExecutor) ExecuteTransactionBody() error {
-	meterParams, err := getBodyMeterParameters(
-		executor.ctx,
-		executor.proc,
-		executor.txnState,
-		executor.derivedTxnData)
-	if err != nil {
-		return fmt.Errorf("error gettng meter parameters: %w", err)
-	}
-
-	var beginErr error
-	executor.nestedTxnId, beginErr = executor.txnState.BeginNestedTransactionWithMeterParams(
-		meterParams)
-	if beginErr != nil {
-		return beginErr
-	}
+	executor.txnState.Resume(executor.pausedState)
 
 	var invalidator derived.TransactionInvalidator
-	var txError error
-	invalidator, txError = executor.normalExecution()
-	if executor.errs.Collect(txError).CollectedFailure() {
-		return executor.errs.ErrorOrNil()
+	if !executor.errs.CollectedError() {
+
+		var txError error
+		invalidator, txError = executor.normalExecution()
+		if executor.errs.Collect(txError).CollectedFailure() {
+			return executor.errs.ErrorOrNil()
+		}
 	}
 
 	if executor.errs.CollectedError() {
@@ -264,26 +325,9 @@ func (executor *transactionExecutor) normalExecution() (
 		return
 	}
 
-	executor.txnBodyExecutor = executor.cadenceRuntime.NewTransactionExecutor(
-		runtime.Script{
-			Source:    executor.proc.Transaction.Script,
-			Arguments: executor.proc.Transaction.Arguments,
-		},
-		common.TransactionLocation(executor.proc.ID))
-
-	err = executor.txnBodyExecutor.Preprocess()
-	if err != nil {
-		err = fmt.Errorf(
-			"transaction invocation failed when executing transaction: %w",
-			err)
-		return
-	}
-
 	err = executor.txnBodyExecutor.Execute()
 	if err != nil {
-		err = fmt.Errorf(
-			"transaction invocation failed when executing transaction: %w",
-			err)
+		err = fmt.Errorf("transaction execute failed: %w", err)
 		return
 	}
 
