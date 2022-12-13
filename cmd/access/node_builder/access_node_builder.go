@@ -541,7 +541,7 @@ func (builder *FlowAccessNodeBuilder) BuildExecutionDataRequester() *FlowAccessN
 				RpcMetricsEnabled:       builder.rpcMetricsEnabled,
 			}
 
-			builder.StateStreamEng = state_stream.NewEng(
+			stateStreamEng, err := state_stream.NewEng(
 				conf,
 				builder.ExecutionDataStore,
 				node.Storage.Headers,
@@ -552,6 +552,13 @@ func (builder *FlowAccessNodeBuilder) BuildExecutionDataRequester() *FlowAccessN
 				builder.apiRatelimits,
 				builder.apiBurstlimits,
 			)
+			if err != nil {
+				return nil, fmt.Errorf("could not create state stream engine: %w", err)
+			}
+			builder.StateStreamEng = stateStreamEng
+
+			builder.ExecutionDataRequester.AddOnExecutionDataFetchedConsumer(builder.StateStreamEng.OnExecutionData)
+
 			return builder.StateStreamEng, nil
 		})
 	}

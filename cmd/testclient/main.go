@@ -43,26 +43,27 @@ func main() {
 		panic(err)
 	}
 
-	account := sdk.NewAccountKey().
+	accountKey := sdk.NewAccountKey().
 		FromPrivateKey(sk).
 		SetHashAlgo(crypto.SHA3_256).
 		SetWeight(sdk.AccountKeyWeightThreshold)
 
-	signer := crypto.NewInMemorySigner(sk, account.HashAlgo)
+	signer, err := crypto.NewInMemorySigner(sk, accountKey.HashAlgo)
+	if err != nil {
+		panic(err)
+	}
 
 	addr := sdk.NewAddressGenerator(sdk.Testnet).NextAddress()
 
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, os.Interrupt)
 
-	nonce := uint64(0)
+	sequenceNum := uint64(1)
 	for {
 
 		select {
 
 		case <-time.After(time.Second / time.Duration(txPerSec)):
-
-			nonce++
 
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 			latest, err := c.GetLatestBlockHeader(ctx, false)
@@ -77,7 +78,7 @@ func main() {
             		}
         		`)).
 				SetGasLimit(100).
-				SetProposalKey(addr, account.ID, nonce).
+				SetProposalKey(addr, accountKey.Index, sequenceNum).
 				SetReferenceBlockID(latest.ID).
 				SetPayer(addr).
 				AddAuthorizer(addr)
@@ -91,6 +92,7 @@ func main() {
 			if err != nil {
 				panic(err)
 			}
+			sequenceNum++
 
 			cancel()
 
