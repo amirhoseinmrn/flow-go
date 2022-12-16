@@ -311,33 +311,30 @@ func (e *blockComputer) executeCollection(
 	// call tracing
 	startedAt := time.Now()
 
-	var colSpan otelTrace.Span
-	if collection.isSystemCollection {
-		colSpan = e.tracer.StartSpanFromParent(
-			blockSpan,
-			trace.EXEComputeSystemCollection)
-
-		e.log.Debug().
-			Str("block_id", collection.blockId).
-			Msg("executing system collection")
-	} else {
-		colSpan = e.tracer.StartSpanFromParent(
-			blockSpan,
-			trace.EXEComputeCollection)
-
-		colSpan.SetAttributes(
-			attribute.Int("collection.txCount", len(collection.Transactions)),
-			attribute.String(
-				"collection.hash",
-				collection.Guarantee.CollectionID.String()))
-
-		e.log.Debug().
-			Str("block_id", collection.blockId).
-			Hex("collection_id", logging.Entity(collection.Guarantee)).
-			Msg("executing collection")
+	colSpanType := trace.EXEComputeSystemCollection
+	collectionId := ""
+	referenceBlockId := ""
+	if !collection.isSystemCollection {
+		colSpanType = trace.EXEComputeCollection
+		collectionId = collection.Guarantee.CollectionID.String()
+		referenceBlockId = collection.Guarantee.ReferenceBlockID.String()
 	}
 
+	colSpan := e.tracer.StartSpanFromParent(blockSpan, colSpanType)
 	defer colSpan.End()
+
+	colSpan.SetAttributes(
+		attribute.Int("collection.txCount", len(collection.Transactions)),
+		attribute.String("collection.hash", collectionId))
+
+	logger := e.log.With().
+		Str("block_id", collection.blockId).
+		Str("collection_id", collectionId).
+		Str("reference_block_id", referenceBlockId).
+		Int("number_of_transactions", len(collection.Transactions)).
+		Bool("system_collection", collection.isSystemCollection).
+		Logger()
+	logger.Debug().Msg("executing collection")
 
 	for _, txBody := range collection.Transactions {
 		err := e.executeTransaction(collection.blockId, txBody, colSpan, collectionView, collection.ctx, collectionIndex, txIndex, collector, collection.isSystemCollection)
@@ -347,16 +344,9 @@ func (e *blockComputer) executeCollection(
 		}
 	}
 
-	if !collection.isSystemCollection {
-		e.log.Info().
-			Str("collectionID", collection.Guarantee.CollectionID.String()).
-			Str("referenceBlockID",
-				collection.Guarantee.ReferenceBlockID.String()).
-			Str("block_id", collection.blockId).
-			Int("numberOfTransactions", len(collection.Transactions)).
-			Int64("timeSpentInMS", time.Since(startedAt).Milliseconds()).
-			Msg("collection executed")
-	}
+	logger.Info().
+		Int64("time_spent_in_ms", time.Since(startedAt).Milliseconds()).
+		Msg("collection executed")
 
 	stats := collector.CommitCollection(
 		collectionIndex,
@@ -399,14 +389,16 @@ func (e *blockComputer) executeTransaction(
 	}
 	defer txInternalSpan.End()
 
-	e.log.Info().
+	logger := e.log.With().
 		Str("tx_id", txID.String()).
 		Uint32("tx_index", txIndex).
 		Str("block_id", blockIdStr).
+		Str("trace_id", traceID).
 		Uint64("height", ctx.BlockHeader.Height).
 		Bool("system_chunk", isSystemTransaction).
 		Bool("system_transaction", isSystemTransaction).
-		Msg("executing transaction in fvm")
+		Logger()
+	logger.Info().Msg("executing transaction in fvm")
 
 	tx := fvm.Transaction(txBody, txIndex)
 	if isSampled {
@@ -449,39 +441,33 @@ func (e *blockComputer) executeTransaction(
 
 	memAllocAfter := debug.GetHeapAllocsBytes()
 
-	lg := e.log.With().
-		Str("tx_id", txID.String()).
-		Str("block_id", blockIdStr).
-		Str("traceID", traceID).
+	logger = logger.With().
 		Uint64("computation_used", tx.ComputationUsed).
 		Uint64("memory_used", tx.MemoryEstimate).
-		Uint64("memAlloc", memAllocAfter-memAllocBefore).
-		Int64("timeSpentInMS", time.Since(startedAt).Milliseconds()).
+		Uint64("mem_alloc", memAllocAfter-memAllocBefore).
+		Int64("time_spent_in_ms", time.Since(startedAt).Milliseconds()).
 		Logger()
 
 	if tx.Err != nil {
-		errMsg := tx.Err.Error()
-
-		lg.Info().
-			Str("error_message", errMsg).
+		logger = logger.With().
+			Str("error_message", tx.Err.Error()).
 			Uint16("error_code", uint16(tx.Err.Code())).
-			Msg("transaction execution failed")
+			Logger()
+		logger.Info().Msg("transaction execution failed")
 
 		if isSystemTransaction {
 			// This log is used as the data source for an alert on grafana.
 			// The system_chunk_error field must not be changed without adding
 			// the corresponding changes in grafana.
 			// https://github.com/dapperlabs/flow-internal/issues/1546
-			e.log.Error().
-				Str("error_message", errMsg).
-				Hex("block_id", logging.Entity(ctx.BlockHeader)).
+			logger.Error().
 				Bool("system_chunk_error", true).
 				Bool("system_transaction_error", true).
 				Bool("critical_error", true).
 				Msg("error executing system chunk transaction")
 		}
 	} else {
-		lg.Info().Msg("transaction executed successfully")
+		logger.Info().Msg("transaction executed successfully")
 	}
 
 	e.metrics.ExecutionTransactionExecuted(
